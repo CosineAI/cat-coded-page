@@ -69,18 +69,68 @@
     };
   }
 
-  function newEffect(letter, intensity = 1, variant = "normal") {
+  function letterProfile(letter, variant = "normal") {
     const idx = letter.charCodeAt(0) - 97;
-    const type = variant === "shift" ? (idx + 4) % 9 : idx % 9;
-    const spawnRadius = 24 + (idx % 6) * 14;
+    const profileIndex = variant === "shift" ? (idx + 13) % 26 : idx;
+    const base = profileIndex + 1;
+
+    return {
+      idx,
+      type: (profileIndex * 5 + 2) % 9,
+      hue: (idx * (360 / 26) + profileIndex * 11) % 360,
+      duration: 1300 + (base % 7) * 230 + Math.floor(base / 7) * 120,
+      spawnRadius: 20 + (base % 6) * 13,
+      follow: 0.13 + (base % 5) * 0.022,
+      anchorRadius: 26 + (base % 8) * 11,
+      anchorSpeed: 0.00045 + (base % 9) * 0.00012,
+      anchorJitter: 5 + (base % 7) * 2.2,
+      ribbonSpawnMs: 14 + (base % 6) * 7,
+      ribbonLifeMs: 680 + (base % 8) * 100,
+      trailSpread: 6 + (base % 5) * 3,
+      rippleSpawnMs: 80 + (base % 6) * 24,
+      rippleGrowth: 0.09 + (base % 7) * 0.024,
+      rippleLifeMs: 700 + (base % 8) * 95,
+      orbitSatellites: 3 + (base % 6),
+      orbitRadius: 20 + (base % 6) * 6,
+      orbitWarp: 0.75 + (base % 5) * 0.18,
+      shardSpikes: 6 + (base % 7),
+      shardLength: 14 + (base % 6) * 4,
+      shardWobble: 3 + (base % 7) * 1.2,
+      boltSegments: 10 + (base % 10),
+      boltSpread: 34 + (base % 8) * 9,
+      boltSpawnMs: 70 + (base % 6) * 16,
+      boltLifeMs: 170 + (base % 7) * 22,
+      sonarSpawnMs: 95 + (base % 7) * 22,
+      sonarArcMin: 0.9 + (base % 4) * 0.25,
+      sonarArcRange: 0.45 + (base % 5) * 0.2,
+      sonarReach: 64 + (base % 9) * 12,
+      petals: 4 + (base % 8),
+      petalLen: 24 + (base % 8) * 5,
+      petalWidth: 8 + (base % 6) * 1.8,
+      petalSpin: 0.55 + (base % 7) * 0.14,
+      gridSize: 86 + (base % 9) * 20,
+      gridStep: 14 + (base % 5) * 4,
+      gridBend: 4 + (base % 8) * 1.6,
+      echoSpawnMs: 46 + (base % 8) * 12,
+      echoLifeMs: 560 + (base % 7) * 90,
+      echoSize: 14 + (base % 10) * 2.2,
+      echoRise: 0.022 + (base % 6) * 0.008,
+      echoDrift: 0.16 + (base % 7) * 0.05
+    };
+  }
+
+  function newEffect(letter, intensity = 1, variant = "normal") {
+    const profile = letterProfile(letter, variant);
+    const type = profile.type;
+    const spawnRadius = profile.spawnRadius;
     const startOffset = randomOffset(spawnRadius);
     const effect = {
       id: state.nextEffectId++,
       letter,
       type,
-      hue: (idx * (360 / 26)) % 360,
+      hue: profile.hue,
       born: performance.now(),
-      duration: 1600 + (idx % 6) * 240,
+      duration: profile.duration,
       x: state.mouse.x + startOffset.x,
       y: state.mouse.y + startOffset.y,
       vx: 0,
@@ -88,11 +138,13 @@
       phase: Math.random() * Math.PI * 2,
       seed: Math.random() * 1000,
       intensity,
+      follow: profile.follow,
       spawnRadius,
-      anchorRadius: 30 + (idx % 7) * 12,
+      anchorRadius: profile.anchorRadius,
       anchorAngle: Math.random() * Math.PI * 2,
-      anchorSpeed: (Math.random() * 0.0012 + 0.0005) * (Math.random() > 0.5 ? 1 : -1),
-      anchorJitter: 7 + (idx % 5) * 2
+      anchorSpeed: (profile.anchorSpeed + Math.random() * 0.00035) * (Math.random() > 0.5 ? 1 : -1),
+      anchorJitter: profile.anchorJitter,
+      profile
     };
 
     if (type === 0) {
@@ -112,9 +164,9 @@
       effect.waves = [];
       effect.spawnMs = 0;
     } else if (type === 6) {
-      effect.petals = 5 + (idx % 4);
+      effect.petals = profile.petals;
     } else if (type === 7) {
-      effect.gridSize = 120 + (idx % 5) * 12;
+      effect.gridSize = profile.gridSize;
     } else {
       effect.ghosts = [];
       effect.spawnMs = 0;
@@ -139,7 +191,7 @@
 
       const prevX = effect.x;
       const prevY = effect.y;
-      const follow = 0.16 + effect.intensity * 0.05;
+      const follow = effect.follow + effect.intensity * 0.04;
 
       effect.anchorAngle += effect.anchorSpeed * dt;
       const jitterX = Math.sin(now * 0.0032 + effect.seed) * effect.anchorJitter;
@@ -156,17 +208,17 @@
       if (effect.type === 0) {
         effect.spawnMs -= dt;
         if (effect.spawnMs <= 0) {
-          const offset = randomOffset(8 + effect.spawnRadius * 0.22);
+          const offset = randomOffset(effect.profile.trailSpread + effect.spawnRadius * 0.22);
           effect.points.push({
             x: effect.x + offset.x,
             y: effect.y + offset.y,
             life: 1
           });
-          effect.spawnMs = 20;
+          effect.spawnMs = effect.profile.ribbonSpawnMs;
         }
 
         for (let p = effect.points.length - 1; p >= 0; p -= 1) {
-          effect.points[p].life -= dt / 900;
+          effect.points[p].life -= dt / effect.profile.ribbonLifeMs;
           if (effect.points[p].life <= 0) {
             effect.points.splice(p, 1);
           }
@@ -174,19 +226,19 @@
       } else if (effect.type === 1) {
         effect.spawnMs -= dt;
         if (effect.spawnMs <= 0) {
-          const offset = randomOffset(10 + effect.spawnRadius * 0.25);
+          const offset = randomOffset(effect.profile.trailSpread + 6 + effect.spawnRadius * 0.25);
           effect.rings.push({
             r: 6,
             life: 1,
             ox: offset.x,
             oy: offset.y
           });
-          effect.spawnMs = 115 / effect.intensity;
+          effect.spawnMs = effect.profile.rippleSpawnMs / effect.intensity;
         }
 
         for (let r = effect.rings.length - 1; r >= 0; r -= 1) {
-          effect.rings[r].r += dt * 0.14;
-          effect.rings[r].life -= dt / 1000;
+          effect.rings[r].r += dt * effect.profile.rippleGrowth;
+          effect.rings[r].life -= dt / effect.profile.rippleLifeMs;
           if (effect.rings[r].life <= 0) {
             effect.rings.splice(r, 1);
           }
@@ -213,11 +265,11 @@
           }
 
           const points = [];
-          const segments = 17;
+          const segments = effect.profile.boltSegments;
 
           for (let s = 0; s <= segments; s += 1) {
             const t = s / segments;
-            const spread = (1 - t) * 68;
+            const spread = (1 - t) * effect.profile.boltSpread;
             points.push({
               x: sx + (effect.x - sx) * t + (Math.random() * 2 - 1) * spread,
               y: sy + (effect.y - sy) * t + (Math.random() * 2 - 1) * spread
@@ -229,11 +281,11 @@
             life: 1
           });
 
-          effect.spawnMs = 95;
+          effect.spawnMs = effect.profile.boltSpawnMs;
         }
 
         for (let b = effect.bolts.length - 1; b >= 0; b -= 1) {
-          effect.bolts[b].life -= dt / 230;
+          effect.bolts[b].life -= dt / effect.profile.boltLifeMs;
           if (effect.bolts[b].life <= 0) {
             effect.bolts.splice(b, 1);
           }
@@ -245,17 +297,17 @@
           effect.waves.push({
             r: 12,
             life: 1,
-            arc: Math.PI * (1.2 + Math.random() * 0.7),
+            arc: Math.PI * (effect.profile.sonarArcMin + Math.random() * effect.profile.sonarArcRange),
             start: Math.random() * Math.PI * 2,
             ox: offset.x,
             oy: offset.y
           });
-          effect.spawnMs = 130;
+          effect.spawnMs = effect.profile.sonarSpawnMs;
         }
 
         for (let w = effect.waves.length - 1; w >= 0; w -= 1) {
-          effect.waves[w].r += dt * 0.18;
-          effect.waves[w].life -= dt / 1100;
+          effect.waves[w].r += dt * (0.1 + effect.profile.sonarReach * 0.0012);
+          effect.waves[w].life -= dt / (780 + effect.profile.sonarReach * 4);
           if (effect.waves[w].life <= 0) {
             effect.waves.splice(w, 1);
           }
@@ -268,16 +320,16 @@
             y: effect.y + (Math.random() * 2 - 1) * 10,
             life: 1,
             angle: (Math.random() * 2 - 1) * 0.25,
-            size: 16 + Math.random() * 16,
-            drift: (Math.random() * 2 - 1) * 0.35
+            size: effect.profile.echoSize * (0.75 + Math.random() * 0.9),
+            drift: (Math.random() * 2 - 1) * effect.profile.echoDrift
           });
-          effect.spawnMs = 72;
+          effect.spawnMs = effect.profile.echoSpawnMs;
         }
 
         for (let g = effect.ghosts.length - 1; g >= 0; g -= 1) {
           const ghost = effect.ghosts[g];
-          ghost.life -= dt / 880;
-          ghost.y -= dt * 0.03;
+          ghost.life -= dt / effect.profile.echoLifeMs;
+          ghost.y -= dt * effect.profile.echoRise;
           ghost.x += ghost.drift * (dt / 16);
 
           if (ghost.life <= 0) {
@@ -533,8 +585,8 @@
   }
 
   function drawEffectOrbit(effect, now, fade) {
-    const satellites = 5;
-    const radius = 26 + Math.sin(effect.phase * 3) * 8;
+    const satellites = effect.profile.orbitSatellites;
+    const radius = effect.profile.orbitRadius + Math.sin(effect.phase * 3) * (3 + effect.profile.orbitWarp * 2.2);
 
     fxCtx.save();
     fxCtx.strokeStyle = `hsla(${effect.hue}, 100%, 64%, ${0.35 * fade})`;
@@ -545,10 +597,10 @@
 
     for (let i = 0; i < satellites; i += 1) {
       const a = effect.phase * 2.1 + i * (Math.PI * 2 / satellites);
-      const orbitShift = 1 + 0.3 * Math.sin(now * 0.0017 + i);
+      const orbitShift = effect.profile.orbitWarp + 0.18 * Math.sin(now * 0.0017 + i);
       const sx = effect.x + Math.cos(a) * radius * orbitShift;
       const sy = effect.y + Math.sin(a * 1.1) * radius * orbitShift;
-      const size = 3 + (i % 2);
+      const size = 2 + (i % 3) + effect.profile.orbitWarp * 0.6;
 
       fxCtx.beginPath();
       fxCtx.fillStyle = `hsla(${(effect.hue + i * 24) % 360}, 100%, 72%, ${0.8 * fade})`;
@@ -566,8 +618,8 @@
   }
 
   function drawEffectShards(effect, fade) {
-    const spikes = 9;
-    const baseR = 18 + Math.sin(effect.phase * 2.5) * 4;
+    const spikes = effect.profile.shardSpikes;
+    const baseR = 14 + Math.sin(effect.phase * 2.5) * effect.profile.shardWobble;
     const spin = effect.phase * 3.2;
 
     fxCtx.save();
@@ -577,7 +629,7 @@
     for (let i = 0; i < spikes; i += 1) {
       const a = i * (Math.PI * 2 / spikes);
       const r1 = baseR;
-      const r2 = baseR + 20 + Math.sin(effect.phase * 4 + i) * 7;
+      const r2 = baseR + effect.profile.shardLength + Math.sin(effect.phase * 4 + i) * effect.profile.shardWobble;
 
       fxCtx.beginPath();
       fxCtx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1);
@@ -641,10 +693,11 @@
     }
 
     const sweep = now * 0.006 + effect.seed;
+    const sweepReach = effect.profile.sonarReach;
     fxCtx.strokeStyle = `hsla(${effect.hue}, 100%, 72%, ${0.45 * fade})`;
     fxCtx.beginPath();
     fxCtx.moveTo(effect.x, effect.y);
-    fxCtx.lineTo(effect.x + Math.cos(sweep) * 92, effect.y + Math.sin(sweep) * 92);
+    fxCtx.lineTo(effect.x + Math.cos(sweep) * sweepReach, effect.y + Math.sin(sweep) * sweepReach);
     fxCtx.stroke();
 
     fxCtx.restore();
@@ -652,14 +705,14 @@
 
   function drawEffectFlower(effect, fade) {
     const petals = effect.petals;
-    const petalLen = 34 + Math.sin(effect.phase * 3) * 8;
-    const petalWidth = 10 + Math.sin(effect.phase * 2.2) * 3;
+    const petalLen = effect.profile.petalLen + Math.sin(effect.phase * 3) * 8;
+    const petalWidth = effect.profile.petalWidth + Math.sin(effect.phase * 2.2) * 3;
 
     fxCtx.save();
     fxCtx.translate(effect.x, effect.y);
 
     for (let i = 0; i < petals; i += 1) {
-      const a = i * (Math.PI * 2 / petals) + effect.phase * 0.9;
+      const a = i * (Math.PI * 2 / petals) + effect.phase * effect.profile.petalSpin;
       fxCtx.save();
       fxCtx.rotate(a);
       fxCtx.beginPath();
@@ -682,7 +735,7 @@
 
   function drawEffectGridWarp(effect, fade) {
     const range = effect.gridSize;
-    const lineStep = 18;
+    const lineStep = effect.profile.gridStep;
 
     fxCtx.save();
     fxCtx.strokeStyle = `hsla(${effect.hue}, 100%, 70%, ${0.22 * fade})`;
@@ -693,7 +746,7 @@
       for (let y = -range; y <= range; y += 12) {
         const d = Math.hypot(gx, y);
         const falloff = Math.max(0, 1 - d / range);
-        const bend = Math.sin(d * 0.08 - effect.phase * 7) * 8 * falloff;
+        const bend = Math.sin(d * 0.08 - effect.phase * 7) * effect.profile.gridBend * falloff;
         const px = effect.x + gx + bend * (gx / (range || 1));
         const py = effect.y + y + bend * (y / (range || 1));
 
@@ -711,7 +764,7 @@
       for (let x = -range; x <= range; x += 12) {
         const d = Math.hypot(x, gy);
         const falloff = Math.max(0, 1 - d / range);
-        const bend = Math.cos(d * 0.08 - effect.phase * 7) * 8 * falloff;
+        const bend = Math.cos(d * 0.08 - effect.phase * 7) * effect.profile.gridBend * falloff;
         const px = effect.x + x + bend * (x / (range || 1));
         const py = effect.y + gy + bend * (gy / (range || 1));
 
@@ -731,7 +784,7 @@
     fxCtx.save();
     fxCtx.textAlign = "center";
     fxCtx.textBaseline = "middle";
-    fxCtx.font = "700 22px ui-monospace, SFMono-Regular, Menlo, monospace";
+    fxCtx.font = `700 ${Math.round(effect.profile.echoSize)}px ui-monospace, SFMono-Regular, Menlo, monospace`;
 
     for (let i = 0; i < effect.ghosts.length; i += 1) {
       const ghost = effect.ghosts[i];
@@ -746,7 +799,7 @@
     }
 
     fxCtx.fillStyle = `hsla(${effect.hue}, 100%, 76%, ${0.9 * fade})`;
-    fxCtx.font = "700 28px ui-monospace, SFMono-Regular, Menlo, monospace";
+    fxCtx.font = `700 ${Math.round(effect.profile.echoSize * 1.25)}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     fxCtx.fillText(effect.letter, effect.x, effect.y);
     fxCtx.restore();
   }
