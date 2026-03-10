@@ -45,9 +45,20 @@
     createStars();
   }
 
+  function randomOffset(radius) {
+    const angle = Math.random() * Math.PI * 2;
+    const distance = Math.sqrt(Math.random()) * radius;
+    return {
+      x: Math.cos(angle) * distance,
+      y: Math.sin(angle) * distance
+    };
+  }
+
   function newEffect(letter, intensity = 1) {
     const idx = letter.charCodeAt(0) - 97;
     const type = idx % 9;
+    const spawnRadius = 24 + (idx % 6) * 14;
+    const startOffset = randomOffset(spawnRadius);
     const effect = {
       id: state.nextEffectId++,
       letter,
@@ -55,13 +66,18 @@
       hue: (idx * (360 / 26)) % 360,
       born: performance.now(),
       duration: 1600 + (idx % 6) * 240,
-      x: state.mouse.x,
-      y: state.mouse.y,
+      x: state.mouse.x + startOffset.x,
+      y: state.mouse.y + startOffset.y,
       vx: 0,
       vy: 0,
       phase: Math.random() * Math.PI * 2,
       seed: Math.random() * 1000,
-      intensity
+      intensity,
+      spawnRadius,
+      anchorRadius: 30 + (idx % 7) * 12,
+      anchorAngle: Math.random() * Math.PI * 2,
+      anchorSpeed: (Math.random() * 0.0012 + 0.0005) * (Math.random() > 0.5 ? 1 : -1),
+      anchorJitter: 7 + (idx % 5) * 2
     };
 
     if (type === 0) {
@@ -108,10 +124,16 @@
 
       const prevX = effect.x;
       const prevY = effect.y;
-      const follow = 0.18 + effect.intensity * 0.06;
+      const follow = 0.16 + effect.intensity * 0.05;
 
-      effect.x += (state.mouse.x - effect.x) * follow;
-      effect.y += (state.mouse.y - effect.y) * follow;
+      effect.anchorAngle += effect.anchorSpeed * dt;
+      const jitterX = Math.sin(now * 0.0032 + effect.seed) * effect.anchorJitter;
+      const jitterY = Math.cos(now * 0.0027 + effect.seed * 1.3) * effect.anchorJitter;
+      const targetX = state.mouse.x + Math.cos(effect.anchorAngle) * effect.anchorRadius + jitterX;
+      const targetY = state.mouse.y + Math.sin(effect.anchorAngle) * effect.anchorRadius + jitterY;
+
+      effect.x += (targetX - effect.x) * follow;
+      effect.y += (targetY - effect.y) * follow;
       effect.vx = effect.x - prevX;
       effect.vy = effect.y - prevY;
       effect.phase += dt * 0.0023;
@@ -119,9 +141,10 @@
       if (effect.type === 0) {
         effect.spawnMs -= dt;
         if (effect.spawnMs <= 0) {
+          const offset = randomOffset(8 + effect.spawnRadius * 0.22);
           effect.points.push({
-            x: effect.x,
-            y: effect.y,
+            x: effect.x + offset.x,
+            y: effect.y + offset.y,
             life: 1
           });
           effect.spawnMs = 20;
@@ -136,9 +159,12 @@
       } else if (effect.type === 1) {
         effect.spawnMs -= dt;
         if (effect.spawnMs <= 0) {
+          const offset = randomOffset(10 + effect.spawnRadius * 0.25);
           effect.rings.push({
             r: 6,
-            life: 1
+            life: 1,
+            ox: offset.x,
+            oy: offset.y
           });
           effect.spawnMs = 115 / effect.intensity;
         }
@@ -200,11 +226,14 @@
       } else if (effect.type === 5) {
         effect.spawnMs -= dt;
         if (effect.spawnMs <= 0) {
+          const offset = randomOffset(14 + effect.spawnRadius * 0.3);
           effect.waves.push({
             r: 12,
             life: 1,
             arc: Math.PI * (1.2 + Math.random() * 0.7),
-            start: Math.random() * Math.PI * 2
+            start: Math.random() * Math.PI * 2,
+            ox: offset.x,
+            oy: offset.y
           });
           effect.spawnMs = 130;
         }
@@ -475,7 +504,7 @@
       const ring = effect.rings[i];
       fxCtx.globalAlpha = ring.life * fade;
       fxCtx.beginPath();
-      fxCtx.arc(effect.x, effect.y, ring.r, 0, Math.PI * 2);
+      fxCtx.arc(effect.x + ring.ox, effect.y + ring.oy, ring.r, 0, Math.PI * 2);
       fxCtx.stroke();
     }
 
@@ -587,10 +616,12 @@
     for (let i = 0; i < effect.waves.length; i += 1) {
       const wave = effect.waves[i];
       const rot = wave.start + now * 0.0018;
+      const wx = effect.x + wave.ox;
+      const wy = effect.y + wave.oy;
 
       fxCtx.strokeStyle = `hsla(${(effect.hue + i * 10) % 360}, 100%, 66%, ${wave.life * 0.8 * fade})`;
       fxCtx.beginPath();
-      fxCtx.arc(effect.x, effect.y, wave.r, rot, rot + wave.arc);
+      fxCtx.arc(wx, wy, wave.r, rot, rot + wave.arc);
       fxCtx.stroke();
     }
 
