@@ -1,6 +1,7 @@
 (() => {
   const bgCanvas = document.getElementById("bg-canvas");
   const fxCanvas = document.getElementById("fx-canvas");
+  const helpEl = document.getElementById("help");
   const bgCtx = bgCanvas.getContext("2d");
   const fxCtx = fxCanvas.getContext("2d");
 
@@ -13,6 +14,7 @@
       y: window.innerHeight / 2
     },
     backgroundMode: 0,
+    helpVisible: true,
     effects: [],
     stars: [],
     lastTime: performance.now(),
@@ -45,6 +47,19 @@
     createStars();
   }
 
+  function applyHelpVisibility() {
+    if (!helpEl) {
+      return;
+    }
+
+    helpEl.classList.toggle("is-hidden", !state.helpVisible);
+  }
+
+  function toggleHelp() {
+    state.helpVisible = !state.helpVisible;
+    applyHelpVisibility();
+  }
+
   function randomOffset(radius) {
     const angle = Math.random() * Math.PI * 2;
     const distance = Math.sqrt(Math.random()) * radius;
@@ -54,9 +69,9 @@
     };
   }
 
-  function newEffect(letter, intensity = 1) {
+  function newEffect(letter, intensity = 1, variant = "normal") {
     const idx = letter.charCodeAt(0) - 97;
-    const type = idx % 9;
+    const type = variant === "shift" ? (idx + 4) % 9 : idx % 9;
     const spawnRadius = 24 + (idx % 6) * 14;
     const startOffset = randomOffset(spawnRadius);
     const effect = {
@@ -784,13 +799,19 @@
 
     const { key } = event;
 
+    if (key === "`") {
+      toggleHelp();
+      return;
+    }
+
     if (/^[0-9]$/.test(key)) {
       state.backgroundMode = Number(key);
       return;
     }
 
     if (/^[a-z]$/i.test(key)) {
-      newEffect(key.toLowerCase(), event.repeat ? 0.55 : 1);
+      const intensity = (event.repeat ? 0.55 : 1) * (event.shiftKey ? 1.15 : 1);
+      newEffect(key.toLowerCase(), intensity, event.shiftKey ? "shift" : "normal");
     }
   }
 
@@ -812,5 +833,6 @@
   window.addEventListener("resize", resize);
 
   resize();
+  applyHelpVisibility();
   requestAnimationFrame(frame);
 })();

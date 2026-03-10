@@ -9,6 +9,7 @@ html, body {
 body {
   position: relative;
   cursor: crosshair;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }
 
 canvas {
@@ -26,4 +27,55 @@ canvas {
 #fx-canvas {
   z-index: 1;
   pointer-events: none;
+}
+
+#help {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 2;
+  max-width: min(360px, calc(100vw - 36px));
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(10, 10, 10, 0.42);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  padding: 14px 16px;
+  user-select: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+#help.is-hidden {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+
+#help .help-title {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+  margin-bottom: 8px;
+}
+
+#help .help-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+#help .help-list li {
+  margin: 6px 0;
+}
+
+#help .help-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
 }
