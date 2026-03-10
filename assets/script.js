@@ -13,10 +13,10 @@
       y: window.innerHeight / 2
     },
     backgroundMode: 0,
-    emitters: [],
-    particles: [],
+    effects: [],
     stars: [],
-    lastTime: performance.now()
+    lastTime: performance.now(),
+    nextEffectId: 1
   };
 
   function resizeCanvas(canvas, ctx) {
@@ -45,110 +45,201 @@
     createStars();
   }
 
-  function spawnEmitter(letter, intensity = 1) {
+  function newEffect(letter, intensity = 1) {
     const idx = letter.charCodeAt(0) - 97;
-    const emitter = {
+    const type = idx % 9;
+    const effect = {
+      id: state.nextEffectId++,
       letter,
-      idx,
-      type: idx % 6,
+      type,
       hue: (idx * (360 / 26)) % 360,
-      power: 0.85 + (idx % 6) * 0.18,
       born: performance.now(),
-      duration: 700 + (idx % 7) * 120,
+      duration: 1600 + (idx % 6) * 240,
       x: state.mouse.x,
       y: state.mouse.y,
-      carry: 0,
+      vx: 0,
+      vy: 0,
+      phase: Math.random() * Math.PI * 2,
+      seed: Math.random() * 1000,
       intensity
     };
 
-    state.emitters.push(emitter);
+    if (type === 0) {
+      effect.points = [];
+      effect.spawnMs = 0;
+    } else if (type === 1) {
+      effect.rings = [];
+      effect.spawnMs = 0;
+    } else if (type === 2) {
+      effect.radius = 34;
+    } else if (type === 3) {
+      effect.spin = (Math.random() * 0.002 + 0.0014) * (Math.random() > 0.5 ? 1 : -1);
+    } else if (type === 4) {
+      effect.bolts = [];
+      effect.spawnMs = 0;
+    } else if (type === 5) {
+      effect.waves = [];
+      effect.spawnMs = 0;
+    } else if (type === 6) {
+      effect.petals = 5 + (idx % 4);
+    } else if (type === 7) {
+      effect.gridSize = 120 + (idx % 5) * 12;
+    } else {
+      effect.ghosts = [];
+      effect.spawnMs = 0;
+    }
 
-    const burstCount = 12 + (idx % 6) * 4;
-    for (let i = 0; i < burstCount; i += 1) {
-      spawnParticle(emitter, true);
+    state.effects.push(effect);
+
+    if (state.effects.length > 26) {
+      state.effects.shift();
     }
   }
 
-  function spawnParticle(emitter, isBurst = false) {
-    const speedBase = [3.9, 2.3, 6.1, 2.8, 3.2, 4.4][emitter.type];
-    const lifeBase = [900, 1100, 650, 1000, 850, 800][emitter.type];
-    const sizeBase = [6, 10, 4, 8, 7, 6][emitter.type];
-    const gravityBase = [0.08, -0.015, 0.02, 0, -0.03, 0.05][emitter.type];
+  function updateEffects(dt, now) {
+    for (let i = state.effects.length - 1; i >= 0; i -= 1) {
+      const effect = state.effects[i];
+      const age = now - effect.born;
 
-    const angle = Math.random() * Math.PI * 2;
-    const speed = speedBase * (isBurst ? 1 + Math.random() * 0.9 : 0.5 + Math.random() * 0.8) * emitter.power;
-    const maxLife = lifeBase * (0.7 + Math.random() * 0.7);
-
-    state.particles.push({
-      type: emitter.type,
-      letter: emitter.letter,
-      hue: (emitter.hue + (Math.random() * 60 - 30) + 360) % 360,
-      x: emitter.x + (Math.random() * 14 - 7),
-      y: emitter.y + (Math.random() * 14 - 7),
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      life: maxLife,
-      maxLife,
-      size: sizeBase * (0.65 + Math.random() * 0.9),
-      rotation: Math.random() * Math.PI * 2,
-      spin: (Math.random() * 0.24 - 0.12),
-      drag: 0.93 + Math.random() * 0.045,
-      gravity: gravityBase
-    });
-  }
-
-  function updateEmitters(dt, now) {
-    for (let i = state.emitters.length - 1; i >= 0; i -= 1) {
-      const emitter = state.emitters[i];
-      const age = now - emitter.born;
-
-      if (age > emitter.duration) {
-        state.emitters.splice(i, 1);
+      if (age > effect.duration) {
+        state.effects.splice(i, 1);
         continue;
       }
 
-      emitter.x += (state.mouse.x - emitter.x) * 0.28;
-      emitter.y += (state.mouse.y - emitter.y) * 0.28;
+      const prevX = effect.x;
+      const prevY = effect.y;
+      const follow = 0.18 + effect.intensity * 0.06;
 
-      const rate = [0.05, 0.08, 0.12, 0.06, 0.09, 0.1][emitter.type] * emitter.intensity * emitter.power;
-      emitter.carry += dt * rate;
+      effect.x += (state.mouse.x - effect.x) * follow;
+      effect.y += (state.mouse.y - effect.y) * follow;
+      effect.vx = effect.x - prevX;
+      effect.vy = effect.y - prevY;
+      effect.phase += dt * 0.0023;
 
-      while (emitter.carry >= 1) {
-        spawnParticle(emitter, false);
-        emitter.carry -= 1;
-      }
-    }
-  }
+      if (effect.type === 0) {
+        effect.spawnMs -= dt;
+        if (effect.spawnMs <= 0) {
+          effect.points.push({
+            x: effect.x,
+            y: effect.y,
+            life: 1
+          });
+          effect.spawnMs = 20;
+        }
 
-  function updateParticles(dt) {
-    const step = dt / 16;
+        for (let p = effect.points.length - 1; p >= 0; p -= 1) {
+          effect.points[p].life -= dt / 900;
+          if (effect.points[p].life <= 0) {
+            effect.points.splice(p, 1);
+          }
+        }
+      } else if (effect.type === 1) {
+        effect.spawnMs -= dt;
+        if (effect.spawnMs <= 0) {
+          effect.rings.push({
+            r: 6,
+            life: 1
+          });
+          effect.spawnMs = 115 / effect.intensity;
+        }
 
-    for (let i = state.particles.length - 1; i >= 0; i -= 1) {
-      const particle = state.particles[i];
-      particle.life -= dt;
+        for (let r = effect.rings.length - 1; r >= 0; r -= 1) {
+          effect.rings[r].r += dt * 0.14;
+          effect.rings[r].life -= dt / 1000;
+          if (effect.rings[r].life <= 0) {
+            effect.rings.splice(r, 1);
+          }
+        }
+      } else if (effect.type === 4) {
+        effect.spawnMs -= dt;
+        if (effect.spawnMs <= 0) {
+          const edgeIndex = Math.floor((effect.seed + now * 0.001) % 4);
+          let sx = 0;
+          let sy = 0;
 
-      if (particle.life <= 0) {
-        state.particles.splice(i, 1);
-        continue;
-      }
+          if (edgeIndex === 0) {
+            sx = -20;
+            sy = Math.random() * state.height;
+          } else if (edgeIndex === 1) {
+            sx = state.width + 20;
+            sy = Math.random() * state.height;
+          } else if (edgeIndex === 2) {
+            sx = Math.random() * state.width;
+            sy = -20;
+          } else {
+            sx = Math.random() * state.width;
+            sy = state.height + 20;
+          }
 
-      particle.vx *= Math.pow(particle.drag, step);
-      particle.vy = particle.vy * Math.pow(particle.drag, step) + particle.gravity * step;
-      particle.x += particle.vx * step;
-      particle.y += particle.vy * step;
-      particle.rotation += particle.spin * step;
+          const points = [];
+          const segments = 17;
 
-      if (particle.type === 3) {
-        const dx = particle.x - state.mouse.x;
-        const dy = particle.y - state.mouse.y;
-        const distance = Math.hypot(dx, dy) + 0.001;
-        const angle = Math.atan2(dy, dx) + 0.04 * step;
-        particle.x = state.mouse.x + Math.cos(angle) * distance;
-        particle.y = state.mouse.y + Math.sin(angle) * distance;
-      }
+          for (let s = 0; s <= segments; s += 1) {
+            const t = s / segments;
+            const spread = (1 - t) * 68;
+            points.push({
+              x: sx + (effect.x - sx) * t + (Math.random() * 2 - 1) * spread,
+              y: sy + (effect.y - sy) * t + (Math.random() * 2 - 1) * spread
+            });
+          }
 
-      if (particle.type === 5) {
-        particle.x += Math.sin((particle.maxLife - particle.life) * 0.03 + particle.hue) * 0.35 * step;
+          effect.bolts.push({
+            points,
+            life: 1
+          });
+
+          effect.spawnMs = 95;
+        }
+
+        for (let b = effect.bolts.length - 1; b >= 0; b -= 1) {
+          effect.bolts[b].life -= dt / 230;
+          if (effect.bolts[b].life <= 0) {
+            effect.bolts.splice(b, 1);
+          }
+        }
+      } else if (effect.type === 5) {
+        effect.spawnMs -= dt;
+        if (effect.spawnMs <= 0) {
+          effect.waves.push({
+            r: 12,
+            life: 1,
+            arc: Math.PI * (1.2 + Math.random() * 0.7),
+            start: Math.random() * Math.PI * 2
+          });
+          effect.spawnMs = 130;
+        }
+
+        for (let w = effect.waves.length - 1; w >= 0; w -= 1) {
+          effect.waves[w].r += dt * 0.18;
+          effect.waves[w].life -= dt / 1100;
+          if (effect.waves[w].life <= 0) {
+            effect.waves.splice(w, 1);
+          }
+        }
+      } else if (effect.type === 8) {
+        effect.spawnMs -= dt;
+        if (effect.spawnMs <= 0) {
+          effect.ghosts.push({
+            x: effect.x + (Math.random() * 2 - 1) * 10,
+            y: effect.y + (Math.random() * 2 - 1) * 10,
+            life: 1,
+            angle: (Math.random() * 2 - 1) * 0.25,
+            size: 16 + Math.random() * 16,
+            drift: (Math.random() * 2 - 1) * 0.35
+          });
+          effect.spawnMs = 72;
+        }
+
+        for (let g = effect.ghosts.length - 1; g >= 0; g -= 1) {
+          const ghost = effect.ghosts[g];
+          ghost.life -= dt / 880;
+          ghost.y -= dt * 0.03;
+          ghost.x += ghost.drift * (dt / 16);
+
+          if (ghost.life <= 0) {
+            effect.ghosts.splice(g, 1);
+          }
+        }
       }
     }
   }
@@ -349,58 +440,297 @@
     }
   }
 
-  function drawParticles() {
+  function drawEffectRibbon(effect, fade) {
+    if (effect.points.length < 2) {
+      return;
+    }
+
+    fxCtx.save();
+    fxCtx.lineCap = "round";
+    fxCtx.lineJoin = "round";
+    fxCtx.shadowBlur = 16;
+    fxCtx.shadowColor = `hsla(${effect.hue}, 100%, 65%, 0.7)`;
+
+    for (let i = 1; i < effect.points.length; i += 1) {
+      const p0 = effect.points[i - 1];
+      const p1 = effect.points[i];
+      const a = Math.min(p0.life, p1.life) * fade;
+      fxCtx.strokeStyle = `hsla(${(effect.hue + i * 3) % 360}, 100%, 65%, ${a * 0.8})`;
+      fxCtx.lineWidth = (2 + p1.life * 8) * fade;
+      fxCtx.beginPath();
+      fxCtx.moveTo(p0.x, p0.y);
+      fxCtx.lineTo(p1.x, p1.y);
+      fxCtx.stroke();
+    }
+
+    fxCtx.restore();
+  }
+
+  function drawEffectRipple(effect, fade) {
+    fxCtx.save();
+    fxCtx.lineWidth = 1.8;
+    fxCtx.strokeStyle = `hsla(${effect.hue}, 100%, 70%, ${0.7 * fade})`;
+
+    for (let i = 0; i < effect.rings.length; i += 1) {
+      const ring = effect.rings[i];
+      fxCtx.globalAlpha = ring.life * fade;
+      fxCtx.beginPath();
+      fxCtx.arc(effect.x, effect.y, ring.r, 0, Math.PI * 2);
+      fxCtx.stroke();
+    }
+
+    fxCtx.globalAlpha = 0.8 * fade;
+    fxCtx.beginPath();
+    fxCtx.arc(effect.x, effect.y, 4, 0, Math.PI * 2);
+    fxCtx.fillStyle = `hsla(${effect.hue}, 100%, 70%, ${0.75 * fade})`;
+    fxCtx.fill();
+
+    fxCtx.restore();
+  }
+
+  function drawEffectOrbit(effect, now, fade) {
+    const satellites = 5;
+    const radius = 26 + Math.sin(effect.phase * 3) * 8;
+
+    fxCtx.save();
+    fxCtx.strokeStyle = `hsla(${effect.hue}, 100%, 64%, ${0.35 * fade})`;
+    fxCtx.lineWidth = 1;
+    fxCtx.beginPath();
+    fxCtx.arc(effect.x, effect.y, radius, 0, Math.PI * 2);
+    fxCtx.stroke();
+
+    for (let i = 0; i < satellites; i += 1) {
+      const a = effect.phase * 2.1 + i * (Math.PI * 2 / satellites);
+      const orbitShift = 1 + 0.3 * Math.sin(now * 0.0017 + i);
+      const sx = effect.x + Math.cos(a) * radius * orbitShift;
+      const sy = effect.y + Math.sin(a * 1.1) * radius * orbitShift;
+      const size = 3 + (i % 2);
+
+      fxCtx.beginPath();
+      fxCtx.fillStyle = `hsla(${(effect.hue + i * 24) % 360}, 100%, 72%, ${0.8 * fade})`;
+      fxCtx.arc(sx, sy, size, 0, Math.PI * 2);
+      fxCtx.fill();
+
+      fxCtx.strokeStyle = `hsla(${effect.hue}, 100%, 68%, ${0.18 * fade})`;
+      fxCtx.beginPath();
+      fxCtx.moveTo(effect.x, effect.y);
+      fxCtx.lineTo(sx, sy);
+      fxCtx.stroke();
+    }
+
+    fxCtx.restore();
+  }
+
+  function drawEffectShards(effect, fade) {
+    const spikes = 9;
+    const baseR = 18 + Math.sin(effect.phase * 2.5) * 4;
+    const spin = effect.phase * 3.2;
+
+    fxCtx.save();
+    fxCtx.translate(effect.x, effect.y);
+    fxCtx.rotate(spin);
+
+    for (let i = 0; i < spikes; i += 1) {
+      const a = i * (Math.PI * 2 / spikes);
+      const r1 = baseR;
+      const r2 = baseR + 20 + Math.sin(effect.phase * 4 + i) * 7;
+
+      fxCtx.beginPath();
+      fxCtx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1);
+      fxCtx.lineTo(Math.cos(a + 0.12) * r2, Math.sin(a + 0.12) * r2);
+      fxCtx.lineTo(Math.cos(a - 0.12) * r2, Math.sin(a - 0.12) * r2);
+      fxCtx.closePath();
+      fxCtx.fillStyle = `hsla(${(effect.hue + i * 14) % 360}, 100%, 65%, ${(0.2 + (i % 3) * 0.11) * fade})`;
+      fxCtx.fill();
+    }
+
+    fxCtx.restore();
+  }
+
+  function drawEffectLightning(effect, fade) {
+    fxCtx.save();
+    fxCtx.lineCap = "round";
+    fxCtx.lineJoin = "round";
+    fxCtx.shadowBlur = 12;
+    fxCtx.shadowColor = `hsla(${effect.hue}, 100%, 65%, 0.8)`;
+
+    for (let i = 0; i < effect.bolts.length; i += 1) {
+      const bolt = effect.bolts[i];
+      const alpha = bolt.life * fade;
+
+      fxCtx.strokeStyle = `hsla(${effect.hue}, 100%, 72%, ${alpha})`;
+      fxCtx.lineWidth = 2.1;
+      fxCtx.beginPath();
+      fxCtx.moveTo(bolt.points[0].x, bolt.points[0].y);
+      for (let p = 1; p < bolt.points.length; p += 1) {
+        fxCtx.lineTo(bolt.points[p].x, bolt.points[p].y);
+      }
+      fxCtx.stroke();
+
+      fxCtx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+      fxCtx.lineWidth = 1;
+      fxCtx.stroke();
+    }
+
+    fxCtx.beginPath();
+    fxCtx.fillStyle = `hsla(${effect.hue}, 100%, 70%, ${0.5 * fade})`;
+    fxCtx.arc(effect.x, effect.y, 8, 0, Math.PI * 2);
+    fxCtx.fill();
+
+    fxCtx.restore();
+  }
+
+  function drawEffectSonar(effect, now, fade) {
+    fxCtx.save();
+    fxCtx.lineWidth = 1.8;
+
+    for (let i = 0; i < effect.waves.length; i += 1) {
+      const wave = effect.waves[i];
+      const rot = wave.start + now * 0.0018;
+
+      fxCtx.strokeStyle = `hsla(${(effect.hue + i * 10) % 360}, 100%, 66%, ${wave.life * 0.8 * fade})`;
+      fxCtx.beginPath();
+      fxCtx.arc(effect.x, effect.y, wave.r, rot, rot + wave.arc);
+      fxCtx.stroke();
+    }
+
+    const sweep = now * 0.006 + effect.seed;
+    fxCtx.strokeStyle = `hsla(${effect.hue}, 100%, 72%, ${0.45 * fade})`;
+    fxCtx.beginPath();
+    fxCtx.moveTo(effect.x, effect.y);
+    fxCtx.lineTo(effect.x + Math.cos(sweep) * 92, effect.y + Math.sin(sweep) * 92);
+    fxCtx.stroke();
+
+    fxCtx.restore();
+  }
+
+  function drawEffectFlower(effect, fade) {
+    const petals = effect.petals;
+    const petalLen = 34 + Math.sin(effect.phase * 3) * 8;
+    const petalWidth = 10 + Math.sin(effect.phase * 2.2) * 3;
+
+    fxCtx.save();
+    fxCtx.translate(effect.x, effect.y);
+
+    for (let i = 0; i < petals; i += 1) {
+      const a = i * (Math.PI * 2 / petals) + effect.phase * 0.9;
+      fxCtx.save();
+      fxCtx.rotate(a);
+      fxCtx.beginPath();
+      fxCtx.ellipse(0, petalLen * 0.35, petalWidth, petalLen, 0, 0, Math.PI * 2);
+      fxCtx.fillStyle = `hsla(${(effect.hue + i * 18) % 360}, 100%, 62%, ${0.2 * fade})`;
+      fxCtx.strokeStyle = `hsla(${(effect.hue + i * 18) % 360}, 100%, 70%, ${0.45 * fade})`;
+      fxCtx.lineWidth = 1.2;
+      fxCtx.fill();
+      fxCtx.stroke();
+      fxCtx.restore();
+    }
+
+    fxCtx.beginPath();
+    fxCtx.fillStyle = `hsla(${effect.hue}, 100%, 76%, ${0.65 * fade})`;
+    fxCtx.arc(0, 0, 7, 0, Math.PI * 2);
+    fxCtx.fill();
+
+    fxCtx.restore();
+  }
+
+  function drawEffectGridWarp(effect, fade) {
+    const range = effect.gridSize;
+    const lineStep = 18;
+
+    fxCtx.save();
+    fxCtx.strokeStyle = `hsla(${effect.hue}, 100%, 70%, ${0.22 * fade})`;
+    fxCtx.lineWidth = 1;
+
+    for (let gx = -range; gx <= range; gx += lineStep) {
+      fxCtx.beginPath();
+      for (let y = -range; y <= range; y += 12) {
+        const d = Math.hypot(gx, y);
+        const falloff = Math.max(0, 1 - d / range);
+        const bend = Math.sin(d * 0.08 - effect.phase * 7) * 8 * falloff;
+        const px = effect.x + gx + bend * (gx / (range || 1));
+        const py = effect.y + y + bend * (y / (range || 1));
+
+        if (y === -range) {
+          fxCtx.moveTo(px, py);
+        } else {
+          fxCtx.lineTo(px, py);
+        }
+      }
+      fxCtx.stroke();
+    }
+
+    for (let gy = -range; gy <= range; gy += lineStep) {
+      fxCtx.beginPath();
+      for (let x = -range; x <= range; x += 12) {
+        const d = Math.hypot(x, gy);
+        const falloff = Math.max(0, 1 - d / range);
+        const bend = Math.cos(d * 0.08 - effect.phase * 7) * 8 * falloff;
+        const px = effect.x + x + bend * (x / (range || 1));
+        const py = effect.y + gy + bend * (gy / (range || 1));
+
+        if (x === -range) {
+          fxCtx.moveTo(px, py);
+        } else {
+          fxCtx.lineTo(px, py);
+        }
+      }
+      fxCtx.stroke();
+    }
+
+    fxCtx.restore();
+  }
+
+  function drawEffectTypeEcho(effect, fade) {
+    fxCtx.save();
+    fxCtx.textAlign = "center";
+    fxCtx.textBaseline = "middle";
+    fxCtx.font = "700 22px ui-monospace, SFMono-Regular, Menlo, monospace";
+
+    for (let i = 0; i < effect.ghosts.length; i += 1) {
+      const ghost = effect.ghosts[i];
+      fxCtx.save();
+      fxCtx.translate(ghost.x, ghost.y);
+      fxCtx.rotate(ghost.angle);
+      fxCtx.globalAlpha = ghost.life * fade * 0.85;
+      fxCtx.fillStyle = `hsla(${(effect.hue + i * 9) % 360}, 100%, 72%, 1)`;
+      fxCtx.font = `700 ${ghost.size}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+      fxCtx.fillText(effect.letter, 0, 0);
+      fxCtx.restore();
+    }
+
+    fxCtx.fillStyle = `hsla(${effect.hue}, 100%, 76%, ${0.9 * fade})`;
+    fxCtx.font = "700 28px ui-monospace, SFMono-Regular, Menlo, monospace";
+    fxCtx.fillText(effect.letter, effect.x, effect.y);
+    fxCtx.restore();
+  }
+
+  function drawEffects(now) {
     fxCtx.clearRect(0, 0, state.width, state.height);
 
-    for (let i = 0; i < state.particles.length; i += 1) {
-      const particle = state.particles[i];
-      const ratio = Math.max(0, particle.life / particle.maxLife);
-      const alpha = Math.pow(ratio, 0.85);
+    for (let i = 0; i < state.effects.length; i += 1) {
+      const effect = state.effects[i];
+      const age = now - effect.born;
+      const fade = Math.max(0, 1 - age / effect.duration);
 
-      if (particle.type === 0) {
-        fxCtx.save();
-        fxCtx.translate(particle.x, particle.y);
-        fxCtx.rotate(particle.rotation);
-        fxCtx.fillStyle = `hsla(${particle.hue}, 100%, 62%, ${alpha})`;
-        fxCtx.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size * 0.74);
-        fxCtx.restore();
-      } else if (particle.type === 1) {
-        fxCtx.beginPath();
-        fxCtx.fillStyle = `hsla(${particle.hue}, 100%, 70%, ${alpha * 0.7})`;
-        fxCtx.arc(particle.x, particle.y, particle.size * (0.55 + (1 - ratio) * 0.45), 0, Math.PI * 2);
-        fxCtx.fill();
-      } else if (particle.type === 2) {
-        fxCtx.strokeStyle = `hsla(${particle.hue}, 100%, 68%, ${alpha})`;
-        fxCtx.lineWidth = Math.max(1, particle.size * 0.35);
-        fxCtx.beginPath();
-        fxCtx.moveTo(particle.x, particle.y);
-        fxCtx.lineTo(particle.x - particle.vx * 1.9, particle.y - particle.vy * 1.9);
-        fxCtx.stroke();
-      } else if (particle.type === 3) {
-        fxCtx.strokeStyle = `hsla(${particle.hue}, 100%, 62%, ${alpha})`;
-        fxCtx.lineWidth = 1.5;
-        fxCtx.beginPath();
-        fxCtx.arc(particle.x, particle.y, particle.size * (1 + (1 - ratio) * 2.5), 0, Math.PI * 2);
-        fxCtx.stroke();
-      } else if (particle.type === 4) {
-        fxCtx.save();
-        fxCtx.translate(particle.x, particle.y);
-        fxCtx.rotate(particle.rotation);
-        fxCtx.fillStyle = `hsla(${particle.hue}, 100%, 67%, ${alpha})`;
-        fxCtx.beginPath();
-        fxCtx.moveTo(0, -particle.size);
-        fxCtx.lineTo(particle.size * 0.6, 0);
-        fxCtx.lineTo(0, particle.size);
-        fxCtx.lineTo(-particle.size * 0.6, 0);
-        fxCtx.closePath();
-        fxCtx.fill();
-        fxCtx.restore();
+      if (effect.type === 0) {
+        drawEffectRibbon(effect, fade);
+      } else if (effect.type === 1) {
+        drawEffectRipple(effect, fade);
+      } else if (effect.type === 2) {
+        drawEffectOrbit(effect, now, fade);
+      } else if (effect.type === 3) {
+        drawEffectShards(effect, fade);
+      } else if (effect.type === 4) {
+        drawEffectLightning(effect, fade);
+      } else if (effect.type === 5) {
+        drawEffectSonar(effect, now, fade);
+      } else if (effect.type === 6) {
+        drawEffectFlower(effect, fade);
+      } else if (effect.type === 7) {
+        drawEffectGridWarp(effect, fade);
       } else {
-        fxCtx.fillStyle = `hsla(${particle.hue}, 100%, 75%, ${alpha})`;
-        fxCtx.font = `${Math.max(10, particle.size * 2)}px ui-monospace, SFMono-Regular, Menlo, monospace`;
-        fxCtx.textAlign = "center";
-        fxCtx.textBaseline = "middle";
-        fxCtx.fillText(particle.letter, particle.x, particle.y);
+        drawEffectTypeEcho(effect, fade);
       }
     }
   }
@@ -409,10 +739,9 @@
     const dt = Math.min(34, now - state.lastTime);
     state.lastTime = now;
 
-    updateEmitters(dt, now);
-    updateParticles(dt);
+    updateEffects(dt, now);
     drawBackground(now, dt);
-    drawParticles();
+    drawEffects(now);
 
     requestAnimationFrame(frame);
   }
@@ -430,7 +759,7 @@
     }
 
     if (/^[a-z]$/i.test(key)) {
-      spawnEmitter(key.toLowerCase(), event.repeat ? 0.55 : 1);
+      newEffect(key.toLowerCase(), event.repeat ? 0.55 : 1);
     }
   }
 
