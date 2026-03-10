@@ -76,7 +76,7 @@
 
     return {
       idx,
-      type: (profileIndex * 5 + 2) % 9,
+      type: profileIndex,
       hue: (idx * (360 / 26) + profileIndex * 11) % 360,
       duration: 1300 + (base % 7) * 230 + Math.floor(base / 7) * 120,
       spawnRadius: 20 + (base % 6) * 13,
@@ -116,7 +116,7 @@
       echoSize: 14 + (base % 10) * 2.2,
       echoRise: 0.022 + (base % 6) * 0.008,
       echoDrift: 0.16 + (base % 7) * 0.05,
-      sigMode: profileIndex % 10,
+      sigMode: profileIndex,
       sigAmpX: 10 + (base % 9) * 4.5,
       sigAmpY: 9 + ((base * 3) % 9) * 4,
       sigFreqX: 0.7 + (base % 7) * 0.22,
@@ -175,7 +175,7 @@
       effect.petals = profile.petals;
     } else if (type === 7) {
       effect.gridSize = profile.gridSize;
-    } else {
+    } else if (type === 8) {
       effect.ghosts = [];
       effect.spawnMs = 0;
     }
@@ -198,59 +198,185 @@
     let followScale = 1;
     let phaseRate = 0.0023;
 
-    if (profile.sigMode === 0) {
-      const r = (0.35 + pulse) * profile.sigAmpX;
-      const a = t * profile.sigSpin + effect.seed * 0.01;
-      x = Math.cos(a) * r;
-      y = Math.sin(a * 1.3) * r * 0.72;
-      followScale = 0.95;
-      phaseRate = 0.0028;
-    } else if (profile.sigMode === 1) {
-      x = waveA * profile.sigAmpX;
-      y = Math.sin(t * profile.sigFreqY * 2 + effect.seed * 0.012) * Math.cos(t * profile.sigFreqX) * profile.sigAmpY * 0.9;
-      followScale = 1.05;
-    } else if (profile.sigMode === 2) {
-      const a = t * profile.sigSpin * 1.6;
-      const r = (0.4 + pulse * 1.2) * profile.sigAmpX;
-      x = Math.cos(a) * (r + Math.sin(a * 3) * profile.sigAmpX * 0.4);
-      y = Math.sin(a) * (r * 0.6 + Math.cos(a * 2) * profile.sigAmpY * 0.4);
-      phaseRate = 0.0029;
-    } else if (profile.sigMode === 3) {
-      x = (2 / Math.PI) * Math.asin(Math.sin(t * profile.sigFreqX * 1.8 + effect.seed * 0.009)) * profile.sigAmpX;
-      y = waveB * profile.sigAmpY * 0.8;
-      followScale = 1.08;
-    } else if (profile.sigMode === 4) {
-      x = Math.sin(t * profile.sigFreqX + effect.seed * 0.01) * profile.sigAmpX * 1.2;
-      y = Math.cos(t * profile.sigFreqX * 0.5 + effect.seed * 0.008) * Math.abs(Math.sin(t * profile.sigFreqY)) * profile.sigAmpY;
-      followScale = 0.9;
-    } else if (profile.sigMode === 5) {
-      const a = t * profile.sigSpin + effect.seed * 0.01;
-      const r = profile.sigAmpX * (0.55 + 0.45 * Math.cos(3 * a));
-      x = Math.cos(a) * r;
-      y = Math.sin(a) * r * 0.8;
-      phaseRate = 0.003;
-    } else if (profile.sigMode === 6) {
-      const sx = Math.sign(Math.sin(t * profile.sigFreqX + effect.seed * 0.007));
-      const sy = Math.sign(Math.cos(t * profile.sigFreqY + effect.seed * 0.011));
-      x = sx * profile.sigAmpX * (0.5 + 0.5 * pulse) + waveA * profile.sigAmpX * 0.25;
-      y = sy * profile.sigAmpY * (0.5 + 0.5 * (1 - pulse)) + waveB * profile.sigAmpY * 0.2;
-      phaseRate = 0.0031;
-    } else if (profile.sigMode === 7) {
-      const a = t * profile.sigSpin * 2;
-      x = Math.cos(a) * (profile.sigAmpX * 0.4 + pulse * profile.sigAmpX);
-      y = Math.sin(a * 0.6) * profile.sigAmpY + Math.cos(a * 2.4) * profile.sigAmpY * 0.3;
-      followScale = 1.1;
-    } else if (profile.sigMode === 8) {
-      const beat = Math.pow(Math.max(0, Math.sin(t * profile.sigPulse * 3.2 + effect.seed * 0.02)), 3);
-      x = waveA * (profile.sigAmpX * 0.35 + beat * profile.sigAmpX * 1.1);
-      y = waveB * (profile.sigAmpY * 0.35 + beat * profile.sigAmpY * 0.9);
-      followScale = 0.88 + beat * 0.5;
-      phaseRate = 0.002 + beat * 0.002;
-    } else {
-      const drift = profile.sigDrift * (0.3 + 0.7 * pulse);
-      x = waveA * profile.sigAmpX + Math.sin(t * 0.8 + effect.seed) * drift;
-      y = waveB * profile.sigAmpY + Math.cos(t * 1.1 + effect.seed * 0.7) * drift * 0.7;
-      followScale = 1.02;
+    switch (profile.sigMode) {
+      case 0: {
+        const r = (0.35 + pulse) * profile.sigAmpX;
+        const a = t * profile.sigSpin + effect.seed * 0.01;
+        x = Math.cos(a) * r;
+        y = Math.sin(a * 1.3) * r * 0.72;
+        followScale = 0.95;
+        phaseRate = 0.0028;
+        break;
+      }
+      case 1:
+        x = waveA * profile.sigAmpX;
+        y = Math.sin(t * profile.sigFreqY * 2 + effect.seed * 0.012) * Math.cos(t * profile.sigFreqX) * profile.sigAmpY * 0.9;
+        followScale = 1.05;
+        break;
+      case 2: {
+        const a = t * profile.sigSpin * 1.6;
+        const r = (0.4 + pulse * 1.2) * profile.sigAmpX;
+        x = Math.cos(a) * (r + Math.sin(a * 3) * profile.sigAmpX * 0.4);
+        y = Math.sin(a) * (r * 0.6 + Math.cos(a * 2) * profile.sigAmpY * 0.4);
+        phaseRate = 0.0029;
+        break;
+      }
+      case 3:
+        x = (2 / Math.PI) * Math.asin(Math.sin(t * profile.sigFreqX * 1.8 + effect.seed * 0.009)) * profile.sigAmpX;
+        y = waveB * profile.sigAmpY * 0.8;
+        followScale = 1.08;
+        break;
+      case 4:
+        x = Math.sin(t * profile.sigFreqX + effect.seed * 0.01) * profile.sigAmpX * 1.2;
+        y = Math.cos(t * profile.sigFreqX * 0.5 + effect.seed * 0.008) * Math.abs(Math.sin(t * profile.sigFreqY)) * profile.sigAmpY;
+        followScale = 0.9;
+        break;
+      case 5: {
+        const a = t * profile.sigSpin + effect.seed * 0.01;
+        const r = profile.sigAmpX * (0.55 + 0.45 * Math.cos(3 * a));
+        x = Math.cos(a) * r;
+        y = Math.sin(a) * r * 0.8;
+        phaseRate = 0.003;
+        break;
+      }
+      case 6: {
+        const sx = Math.sign(Math.sin(t * profile.sigFreqX + effect.seed * 0.007));
+        const sy = Math.sign(Math.cos(t * profile.sigFreqY + effect.seed * 0.011));
+        x = sx * profile.sigAmpX * (0.5 + 0.5 * pulse) + waveA * profile.sigAmpX * 0.25;
+        y = sy * profile.sigAmpY * (0.5 + 0.5 * (1 - pulse)) + waveB * profile.sigAmpY * 0.2;
+        phaseRate = 0.0031;
+        break;
+      }
+      case 7: {
+        const a = t * profile.sigSpin * 2;
+        x = Math.cos(a) * (profile.sigAmpX * 0.4 + pulse * profile.sigAmpX);
+        y = Math.sin(a * 0.6) * profile.sigAmpY + Math.cos(a * 2.4) * profile.sigAmpY * 0.3;
+        followScale = 1.1;
+        break;
+      }
+      case 8: {
+        const beat = Math.pow(Math.max(0, Math.sin(t * profile.sigPulse * 3.2 + effect.seed * 0.02)), 3);
+        x = waveA * (profile.sigAmpX * 0.35 + beat * profile.sigAmpX * 1.1);
+        y = waveB * (profile.sigAmpY * 0.35 + beat * profile.sigAmpY * 0.9);
+        followScale = 0.88 + beat * 0.5;
+        phaseRate = 0.002 + beat * 0.002;
+        break;
+      }
+      case 9: {
+        const drift = profile.sigDrift * (0.3 + 0.7 * pulse);
+        x = waveA * profile.sigAmpX + Math.sin(t * 0.8 + effect.seed) * drift;
+        y = waveB * profile.sigAmpY + Math.cos(t * 1.1 + effect.seed * 0.7) * drift * 0.7;
+        followScale = 1.02;
+        break;
+      }
+      case 10:
+        x = Math.sin(t * profile.sigFreqX) * profile.sigAmpX;
+        y = Math.sin(t * profile.sigFreqX * 2 + effect.seed * 0.015) * profile.sigAmpY;
+        phaseRate = 0.0029;
+        break;
+      case 11: {
+        const a = t * profile.sigSpin * 1.2;
+        const r = profile.sigAmpX * (1 - Math.sin(a));
+        x = Math.cos(a) * r * 0.5;
+        y = Math.sin(a) * r * 0.5;
+        followScale = 0.9;
+        break;
+      }
+      case 12:
+        x = ((2 / Math.PI) * Math.asin(Math.sin(t * profile.sigFreqX * 1.4))) * profile.sigAmpX;
+        y = Math.sin(t * profile.sigFreqY * 1.7) * profile.sigAmpY * 0.55;
+        phaseRate = 0.0032;
+        break;
+      case 13: {
+        const a = t * profile.sigSpin * 1.5;
+        const r = profile.sigAmpX * (0.25 + t * 0.18 % 1);
+        x = Math.cos(a) * r;
+        y = Math.sin(a) * r;
+        followScale = 0.92;
+        break;
+      }
+      case 14: {
+        const a = t * profile.sigSpin * 2.1;
+        x = Math.cos(a) * profile.sigAmpX * 0.75;
+        y = Math.sin(a * 0.5) * profile.sigAmpY + Math.cos(a) * profile.sigAmpY * 0.35;
+        break;
+      }
+      case 15: {
+        const a = t * profile.sigSpin;
+        x = Math.cos(a) * profile.sigAmpX * Math.cos(2 * a);
+        y = Math.sin(a) * profile.sigAmpY * Math.cos(2 * a);
+        phaseRate = 0.003;
+        break;
+      }
+      case 16:
+        x = Math.sin(t * profile.sigFreqX) * profile.sigAmpX;
+        y = Math.sin(t * profile.sigFreqY + Math.sin(t * 1.7)) * profile.sigAmpY * 0.8;
+        followScale = 1.08;
+        break;
+      case 17: {
+        const a = t * profile.sigSpin;
+        const x1 = Math.cos(a) * profile.sigAmpX * 0.7;
+        const y1 = Math.sin(a) * profile.sigAmpY * 0.7;
+        const x2 = Math.cos(a * 2.2 + effect.seed) * profile.sigAmpX * 0.4;
+        const y2 = Math.sin(a * 2.2 + effect.seed) * profile.sigAmpY * 0.4;
+        x = x1 + x2;
+        y = y1 + y2;
+        break;
+      }
+      case 18:
+        x = ((2 / Math.PI) * Math.asin(Math.sin(t * profile.sigFreqX))) * profile.sigAmpX;
+        y = ((2 / Math.PI) * Math.asin(Math.sin(t * profile.sigFreqY * 1.8 + effect.seed * 0.02))) * profile.sigAmpY * 0.8;
+        followScale = 0.96;
+        break;
+      case 19: {
+        const a = t * profile.sigSpin * 1.1;
+        x = Math.sin(a) * profile.sigAmpX;
+        y = Math.asin(Math.sin(a * 2 + effect.seed * 0.015)) * (profile.sigAmpY * 0.55);
+        break;
+      }
+      case 20: {
+        const beat = Math.max(0, Math.sin(t * profile.sigPulse * 4 + effect.seed * 0.02));
+        x = waveA * profile.sigAmpX * (0.4 + beat);
+        y = waveB * profile.sigAmpY * (0.4 + beat);
+        followScale = 0.82 + beat * 0.55;
+        phaseRate = 0.0019 + beat * 0.0022;
+        break;
+      }
+      case 21:
+        x = Math.sin(t * profile.sigFreqX) * profile.sigAmpX;
+        y = Math.abs(Math.sin(t * profile.sigFreqY)) * profile.sigAmpY - profile.sigAmpY * 0.5;
+        followScale = 1.05;
+        break;
+      case 22:
+        x = Math.sin(t * profile.sigFreqX) * profile.sigAmpX + Math.sin(t * profile.sigFreqX * 3) * profile.sigAmpX * 0.28;
+        y = Math.cos(t * profile.sigFreqY) * profile.sigAmpY + Math.cos(t * profile.sigFreqY * 2.7) * profile.sigAmpY * 0.24;
+        phaseRate = 0.0031;
+        break;
+      case 23: {
+        const a = t * profile.sigSpin * 1.4;
+        const r = profile.sigAmpX * (0.6 + 0.4 * Math.sin(5 * a));
+        x = Math.cos(a) * r;
+        y = Math.sin(a) * r * 0.7;
+        break;
+      }
+      case 24: {
+        const snap = Math.round(Math.sin(t * profile.sigFreqX + effect.seed * 0.01) * 2) / 2;
+        x = snap * profile.sigAmpX;
+        y = Math.sin(t * profile.sigFreqY * 1.4) * profile.sigAmpY * 0.9;
+        followScale = 1.14;
+        phaseRate = 0.0033;
+        break;
+      }
+      case 25: {
+        const a = t * profile.sigSpin * 0.9;
+        const drift = profile.sigDrift * 0.7;
+        x = Math.cos(a) * profile.sigAmpX * 0.8 + Math.sin(t * 0.6 + effect.seed * 0.1) * drift;
+        y = Math.sin(a * 1.5) * profile.sigAmpY * 0.8 + Math.cos(t * 0.5 + effect.seed * 0.12) * drift;
+        followScale = 0.94;
+        break;
+      }
+      default:
+        break;
     }
 
     return { x, y, followScale, phaseRate };
@@ -882,6 +1008,219 @@
     fxCtx.restore();
   }
 
+  function drawEffectRune(effect, now, fade) {
+    const mode = effect.type - 9;
+    const t = now * 0.001 + effect.seed * 0.01;
+    const r = 12 + effect.profile.spawnRadius * 0.25;
+
+    fxCtx.save();
+    fxCtx.translate(effect.x, effect.y);
+    fxCtx.rotate(effect.phase * 1.4);
+    fxCtx.lineCap = "round";
+    fxCtx.lineJoin = "round";
+    fxCtx.strokeStyle = `hsla(${effect.hue}, 100%, 70%, ${0.6 * fade})`;
+    fxCtx.fillStyle = `hsla(${(effect.hue + 25) % 360}, 100%, 70%, ${0.22 * fade})`;
+    fxCtx.lineWidth = 1.2 + effect.profile.orbitWarp * 0.45;
+
+    if (mode === 0) {
+      const n = 3;
+      fxCtx.beginPath();
+      for (let i = 0; i <= n; i += 1) {
+        const a = t * 2 + i * (Math.PI * 2 / n);
+        const rr = r * (1 + 0.35 * Math.sin(t * 3 + i));
+        const px = Math.cos(a) * rr;
+        const py = Math.sin(a) * rr;
+        if (i === 0) {
+          fxCtx.moveTo(px, py);
+        } else {
+          fxCtx.lineTo(px, py);
+        }
+      }
+      fxCtx.closePath();
+      fxCtx.fill();
+      fxCtx.stroke();
+    } else if (mode === 1) {
+      for (let i = 0; i < 4; i += 1) {
+        const s = r * (0.7 + i * 0.35 + 0.15 * Math.sin(t * 2 + i));
+        fxCtx.save();
+        fxCtx.rotate(t * 0.8 + i * 0.3);
+        fxCtx.strokeRect(-s, -s, s * 2, s * 2);
+        fxCtx.restore();
+      }
+    } else if (mode === 2) {
+      for (let i = 0; i < 11; i += 1) {
+        const p = i / 10;
+        const px = (p - 0.5) * r * 2.4;
+        const py = Math.sin(p * Math.PI * 2 + t * 4) * r * 0.55;
+        fxCtx.beginPath();
+        fxCtx.arc(px, py, 1.6 + p * 2.2, 0, Math.PI * 2);
+        fxCtx.fill();
+      }
+    } else if (mode === 3) {
+      for (let i = 0; i < 5; i += 1) {
+        const start = t + i * 0.6;
+        fxCtx.beginPath();
+        fxCtx.arc(0, 0, r * (0.6 + i * 0.3), start, start + Math.PI * (0.5 + 0.25 * Math.sin(t + i)));
+        fxCtx.stroke();
+      }
+    } else if (mode === 4) {
+      fxCtx.beginPath();
+      fxCtx.moveTo(-r * 1.4, 0);
+      fxCtx.lineTo(r * 1.4, 0);
+      fxCtx.moveTo(0, -r * 1.4);
+      fxCtx.lineTo(0, r * 1.4);
+      fxCtx.stroke();
+      fxCtx.beginPath();
+      fxCtx.arc(0, 0, r * (0.7 + 0.25 * Math.sin(t * 3)), 0, Math.PI * 2);
+      fxCtx.stroke();
+    } else if (mode === 5) {
+      for (let i = 0; i < 24; i += 1) {
+        const p = i / 24;
+        const a = p * Math.PI * 4 + t * 3;
+        const rr = r * (0.2 + p * 1.5);
+        const x = Math.cos(a) * rr;
+        const y = Math.sin(a) * rr;
+        const nx = Math.cos(a) * 4;
+        const ny = Math.sin(a) * 4;
+        fxCtx.beginPath();
+        fxCtx.moveTo(x - nx, y - ny);
+        fxCtx.lineTo(x + nx, y + ny);
+        fxCtx.stroke();
+      }
+    } else if (mode === 6) {
+      const spikes = 7;
+      fxCtx.beginPath();
+      for (let i = 0; i < spikes * 2; i += 1) {
+        const a = i * Math.PI / spikes;
+        const rr = i % 2 === 0 ? r * 1.45 : r * 0.58;
+        const x = Math.cos(a) * rr;
+        const y = Math.sin(a) * rr;
+        if (i === 0) {
+          fxCtx.moveTo(x, y);
+        } else {
+          fxCtx.lineTo(x, y);
+        }
+      }
+      fxCtx.closePath();
+      fxCtx.stroke();
+    } else if (mode === 7) {
+      fxCtx.beginPath();
+      fxCtx.arc(-r * 0.35, 0, r * 0.7, Math.PI * 0.5, Math.PI * 1.5);
+      fxCtx.arc(r * 0.35, 0, r * 0.7, Math.PI * 1.5, Math.PI * 0.5);
+      fxCtx.stroke();
+      fxCtx.beginPath();
+      fxCtx.arc(-r * 0.35, 0, 2.5, 0, Math.PI * 2);
+      fxCtx.arc(r * 0.35, 0, 2.5, 0, Math.PI * 2);
+      fxCtx.fill();
+    } else if (mode === 8) {
+      const petals = 6;
+      for (let i = 0; i < petals; i += 1) {
+        fxCtx.save();
+        fxCtx.rotate(i * Math.PI * 2 / petals + t);
+        fxCtx.beginPath();
+        fxCtx.ellipse(0, r * 0.65, r * 0.2, r * 0.7, 0, 0, Math.PI * 2);
+        fxCtx.stroke();
+        fxCtx.restore();
+      }
+    } else if (mode === 9) {
+      fxCtx.beginPath();
+      fxCtx.moveTo(0, 0);
+      fxCtx.arc(0, 0, r * 1.5, -0.25 + t * 1.3, 0.35 + t * 1.3);
+      fxCtx.closePath();
+      fxCtx.fill();
+      fxCtx.beginPath();
+      fxCtx.arc(0, 0, r * 1.6, 0, Math.PI * 2);
+      fxCtx.stroke();
+    } else if (mode === 10) {
+      const step = r * 0.45;
+      for (let i = -2; i <= 2; i += 1) {
+        fxCtx.beginPath();
+        fxCtx.moveTo(i * step, -r * 1.2);
+        fxCtx.lineTo(i * step + Math.sin(t + i) * 5, r * 1.2);
+        fxCtx.stroke();
+      }
+      for (let j = -2; j <= 2; j += 1) {
+        fxCtx.beginPath();
+        fxCtx.moveTo(-r * 1.2, j * step);
+        fxCtx.lineTo(r * 1.2, j * step + Math.cos(t + j) * 5);
+        fxCtx.stroke();
+      }
+    } else if (mode === 11) {
+      for (let i = 0; i < 5; i += 1) {
+        const y = (i - 2) * r * 0.35;
+        fxCtx.beginPath();
+        fxCtx.moveTo(-r * 0.9, y);
+        fxCtx.lineTo(0, y + r * 0.2);
+        fxCtx.lineTo(r * 0.9, y);
+        fxCtx.stroke();
+      }
+    } else if (mode === 12) {
+      const n = 8;
+      for (let i = 0; i < n; i += 1) {
+        const a = t * 2 + i * (Math.PI * 2 / n);
+        const rr = r * (0.45 + i * 0.12);
+        fxCtx.beginPath();
+        fxCtx.arc(Math.cos(a) * rr, Math.sin(a) * rr, 1.8 + i * 0.25, 0, Math.PI * 2);
+        fxCtx.fill();
+      }
+    } else if (mode === 13) {
+      const flames = 5;
+      for (let i = 0; i < flames; i += 1) {
+        const a = i * Math.PI * 2 / flames + t * 1.2;
+        fxCtx.save();
+        fxCtx.rotate(a);
+        fxCtx.beginPath();
+        fxCtx.moveTo(0, -r * 0.2);
+        fxCtx.quadraticCurveTo(r * 0.35, r * 0.25, 0, r * 1.15);
+        fxCtx.quadraticCurveTo(-r * 0.35, r * 0.25, 0, -r * 0.2);
+        fxCtx.stroke();
+        fxCtx.restore();
+      }
+    } else if (mode === 14) {
+      for (let i = -4; i <= 4; i += 1) {
+        const y = i * r * 0.27;
+        const sway = Math.sin(t * 2 + i) * r * 0.2;
+        fxCtx.beginPath();
+        fxCtx.moveTo(-r * 0.6 + sway, y);
+        fxCtx.lineTo(r * 0.6 - sway, y);
+        fxCtx.stroke();
+      }
+      fxCtx.beginPath();
+      fxCtx.moveTo(-r * 0.7, -r * 1.2);
+      fxCtx.lineTo(-r * 0.3, r * 1.2);
+      fxCtx.moveTo(r * 0.7, -r * 1.2);
+      fxCtx.lineTo(r * 0.3, r * 1.2);
+      fxCtx.stroke();
+    } else if (mode === 15) {
+      for (let i = 0; i < 20; i += 1) {
+        const a = i * (Math.PI * 2 / 20);
+        const rr = r * (0.5 + Math.sin(t * 3 + i) * 0.3 + (i % 4) * 0.12);
+        const s = 2 + (i % 3);
+        fxCtx.fillRect(Math.cos(a) * rr - s * 0.5, Math.sin(a) * rr - s * 0.5, s, s);
+      }
+    } else {
+      fxCtx.beginPath();
+      for (let i = 0; i < 48; i += 1) {
+        const p = i / 48;
+        const a = p * Math.PI * 6 + t * 2;
+        const rr = r * (0.1 + p * 1.7);
+        const x = Math.cos(a) * rr;
+        const y = Math.sin(a) * rr;
+        if (i === 0) {
+          fxCtx.moveTo(x, y);
+        } else {
+          fxCtx.lineTo(x, y);
+        }
+      }
+      fxCtx.stroke();
+      fxCtx.beginPath();
+      fxCtx.arc(0, 0, r * 0.28, 0, Math.PI * 2);
+      fxCtx.fill();
+    }
+
+    fxCtx.restore();
+  }
+
   function drawEffects(now) {
     fxCtx.clearRect(0, 0, state.width, state.height);
 
@@ -906,8 +1245,10 @@
         drawEffectFlower(effect, fade);
       } else if (effect.type === 7) {
         drawEffectGridWarp(effect, fade);
-      } else {
+      } else if (effect.type === 8) {
         drawEffectTypeEcho(effect, fade);
+      } else {
+        drawEffectRune(effect, now, fade);
       }
     }
   }
