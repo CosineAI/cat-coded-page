@@ -115,7 +115,15 @@
       echoLifeMs: 560 + (base % 7) * 90,
       echoSize: 14 + (base % 10) * 2.2,
       echoRise: 0.022 + (base % 6) * 0.008,
-      echoDrift: 0.16 + (base % 7) * 0.05
+      echoDrift: 0.16 + (base % 7) * 0.05,
+      sigMode: profileIndex % 10,
+      sigAmpX: 10 + (base % 9) * 4.5,
+      sigAmpY: 9 + ((base * 3) % 9) * 4,
+      sigFreqX: 0.7 + (base % 7) * 0.22,
+      sigFreqY: 0.65 + ((base * 2) % 7) * 0.2,
+      sigSpin: 0.7 + (base % 6) * 0.17,
+      sigPulse: 0.9 + (base % 5) * 0.24,
+      sigDrift: (base % 2 === 0 ? -1 : 1) * (6 + (base % 6) * 2.4)
     };
   }
 
@@ -179,6 +187,75 @@
     }
   }
 
+  function signatureOffset(effect, now, age) {
+    const profile = effect.profile;
+    const t = age * 0.001;
+    const pulse = 0.5 + 0.5 * Math.sin(t * profile.sigPulse + effect.seed * 0.017);
+    const waveA = Math.sin(t * profile.sigFreqX + effect.seed * 0.019);
+    const waveB = Math.cos(t * profile.sigFreqY + effect.seed * 0.013);
+    let x = 0;
+    let y = 0;
+    let followScale = 1;
+    let phaseRate = 0.0023;
+
+    if (profile.sigMode === 0) {
+      const r = (0.35 + pulse) * profile.sigAmpX;
+      const a = t * profile.sigSpin + effect.seed * 0.01;
+      x = Math.cos(a) * r;
+      y = Math.sin(a * 1.3) * r * 0.72;
+      followScale = 0.95;
+      phaseRate = 0.0028;
+    } else if (profile.sigMode === 1) {
+      x = waveA * profile.sigAmpX;
+      y = Math.sin(t * profile.sigFreqY * 2 + effect.seed * 0.012) * Math.cos(t * profile.sigFreqX) * profile.sigAmpY * 0.9;
+      followScale = 1.05;
+    } else if (profile.sigMode === 2) {
+      const a = t * profile.sigSpin * 1.6;
+      const r = (0.4 + pulse * 1.2) * profile.sigAmpX;
+      x = Math.cos(a) * (r + Math.sin(a * 3) * profile.sigAmpX * 0.4);
+      y = Math.sin(a) * (r * 0.6 + Math.cos(a * 2) * profile.sigAmpY * 0.4);
+      phaseRate = 0.0029;
+    } else if (profile.sigMode === 3) {
+      x = (2 / Math.PI) * Math.asin(Math.sin(t * profile.sigFreqX * 1.8 + effect.seed * 0.009)) * profile.sigAmpX;
+      y = waveB * profile.sigAmpY * 0.8;
+      followScale = 1.08;
+    } else if (profile.sigMode === 4) {
+      x = Math.sin(t * profile.sigFreqX + effect.seed * 0.01) * profile.sigAmpX * 1.2;
+      y = Math.cos(t * profile.sigFreqX * 0.5 + effect.seed * 0.008) * Math.abs(Math.sin(t * profile.sigFreqY)) * profile.sigAmpY;
+      followScale = 0.9;
+    } else if (profile.sigMode === 5) {
+      const a = t * profile.sigSpin + effect.seed * 0.01;
+      const r = profile.sigAmpX * (0.55 + 0.45 * Math.cos(3 * a));
+      x = Math.cos(a) * r;
+      y = Math.sin(a) * r * 0.8;
+      phaseRate = 0.003;
+    } else if (profile.sigMode === 6) {
+      const sx = Math.sign(Math.sin(t * profile.sigFreqX + effect.seed * 0.007));
+      const sy = Math.sign(Math.cos(t * profile.sigFreqY + effect.seed * 0.011));
+      x = sx * profile.sigAmpX * (0.5 + 0.5 * pulse) + waveA * profile.sigAmpX * 0.25;
+      y = sy * profile.sigAmpY * (0.5 + 0.5 * (1 - pulse)) + waveB * profile.sigAmpY * 0.2;
+      phaseRate = 0.0031;
+    } else if (profile.sigMode === 7) {
+      const a = t * profile.sigSpin * 2;
+      x = Math.cos(a) * (profile.sigAmpX * 0.4 + pulse * profile.sigAmpX);
+      y = Math.sin(a * 0.6) * profile.sigAmpY + Math.cos(a * 2.4) * profile.sigAmpY * 0.3;
+      followScale = 1.1;
+    } else if (profile.sigMode === 8) {
+      const beat = Math.pow(Math.max(0, Math.sin(t * profile.sigPulse * 3.2 + effect.seed * 0.02)), 3);
+      x = waveA * (profile.sigAmpX * 0.35 + beat * profile.sigAmpX * 1.1);
+      y = waveB * (profile.sigAmpY * 0.35 + beat * profile.sigAmpY * 0.9);
+      followScale = 0.88 + beat * 0.5;
+      phaseRate = 0.002 + beat * 0.002;
+    } else {
+      const drift = profile.sigDrift * (0.3 + 0.7 * pulse);
+      x = waveA * profile.sigAmpX + Math.sin(t * 0.8 + effect.seed) * drift;
+      y = waveB * profile.sigAmpY + Math.cos(t * 1.1 + effect.seed * 0.7) * drift * 0.7;
+      followScale = 1.02;
+    }
+
+    return { x, y, followScale, phaseRate };
+  }
+
   function updateEffects(dt, now) {
     for (let i = state.effects.length - 1; i >= 0; i -= 1) {
       const effect = state.effects[i];
@@ -191,19 +268,20 @@
 
       const prevX = effect.x;
       const prevY = effect.y;
-      const follow = effect.follow + effect.intensity * 0.04;
+      const signature = signatureOffset(effect, now, age);
+      const follow = (effect.follow + effect.intensity * 0.04) * signature.followScale;
 
       effect.anchorAngle += effect.anchorSpeed * dt;
       const jitterX = Math.sin(now * 0.0032 + effect.seed) * effect.anchorJitter;
       const jitterY = Math.cos(now * 0.0027 + effect.seed * 1.3) * effect.anchorJitter;
-      const targetX = state.mouse.x + Math.cos(effect.anchorAngle) * effect.anchorRadius + jitterX;
-      const targetY = state.mouse.y + Math.sin(effect.anchorAngle) * effect.anchorRadius + jitterY;
+      const targetX = state.mouse.x + Math.cos(effect.anchorAngle) * effect.anchorRadius + jitterX + signature.x;
+      const targetY = state.mouse.y + Math.sin(effect.anchorAngle) * effect.anchorRadius + jitterY + signature.y;
 
       effect.x += (targetX - effect.x) * follow;
       effect.y += (targetY - effect.y) * follow;
       effect.vx = effect.x - prevX;
       effect.vy = effect.y - prevY;
-      effect.phase += dt * 0.0023;
+      effect.phase += dt * signature.phaseRate;
 
       if (effect.type === 0) {
         effect.spawnMs -= dt;
